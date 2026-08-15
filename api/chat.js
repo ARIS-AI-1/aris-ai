@@ -12,17 +12,24 @@ module.exports = async (req, res) => {
             });
         }
 
-        let body = req.body;
+        let rawBody = req.body;
 
-if (typeof body === "string") {
+if (!rawBody) {
+    rawBody = {};
+}
+
+if (typeof rawBody === "string") {
     try {
-        body = JSON.parse(body);
+        rawBody = JSON.parse(rawBody);
     } catch {
-        body = {};
+        rawBody = {};
     }
 }
 
-const userMessage = body?.message;
+const userMessage =
+    rawBody.message ||
+    rawBody.prompt ||
+    rawBody.text;
 
         if (!userMessage) {
             return res.status(400).json({
