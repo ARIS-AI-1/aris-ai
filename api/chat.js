@@ -1,3 +1,4 @@
+
 const Groq = require("groq-sdk");
 
 const groq = new Groq({
@@ -16,10 +17,7 @@ module.exports = async (req, res) => {
         ];
 
         if (allowedOrigins.includes(origin)) {
-            res.setHeader(
-                "Access-Control-Allow-Origin",
-                origin
-            );
+            res.setHeader("Access-Control-Allow-Origin", origin);
         }
 
         res.setHeader(
@@ -37,7 +35,7 @@ module.exports = async (req, res) => {
             return res.status(204).end();
         }
 
-        // Test API
+        // API test
         if (req.method === "GET") {
             return res.status(200).json({
                 message: "ARIS AI chat API is online. Use POST to chat."
@@ -50,7 +48,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // Get request body
+        // Read body
         let body = req.body || {};
 
         if (typeof body === "string") {
@@ -61,7 +59,6 @@ module.exports = async (req, res) => {
             }
         }
 
-        // Get user's current message
         const userMessage =
             body.message ||
             body.prompt ||
@@ -73,43 +70,55 @@ module.exports = async (req, res) => {
             });
         }
 
-        // Get conversation history
-        let history = Array.isArray(body.history)
-            ? body.history
-            : [];
+        // Read conversation history
+        let history = [];
 
-        // Keep the latest 20 messages
-        history = history.slice(-20);
+        if (Array.isArray(body.history)) {
+            history = body.history;
+        }
 
-        // Build conversation for Groq
+        // Only keep valid chat messages
+        history = history
+            .filter(item =>
+                item &&
+                (item.role === "user" || item.role === "assistant") &&
+                typeof item.content === "string" &&
+                item.content.trim()
+            )
+            .slice(-20);
+
+        // Build messages
         const messages = [
             {
                 role: "system",
                 content:
-                    "You are ARIS, a helpful AI assistant created by Abdul Rehman. Use the conversation history to understand follow-up questions and context. Remember what the user was talking about earlier. Understand references such as 'it', 'they', 'that', 'this', 'he', and 'she'. Always answer the user's latest question directly. Do not ask what topic the user means when the answer can be determined from the conversation history. If asked who created you, say: \"I was created by Abdul Rehman.\" Always answer in English. Be helpful, friendly, clear, and concise."
+                    "You are ARIS, a helpful AI assistant created by Abdul Rehman. You have access to the previous conversation below. Use it to understand follow-up questions and references. If the user says 'it', 'they', 'that', 'this', 'he', or 'she', use the previous conversation to determine what they mean. Do not ask what topic they mean if the conversation already makes it clear. Always answer the latest question directly. If asked who created you, say: \"I was created by Abdul Rehman.\" Always answer in English. Be helpful, friendly, clear, and concise."
             },
-
             ...history,
-
             {
                 role: "user",
                 content: String(userMessage)
             }
         ];
 
-        // Ask Groq
+        console.log(
+            "ARIS conversation messages:",
+            messages.length
+        );
+
+        // Groq
         const stream = await groq.chat.completions.create({
             model: "llama-3.1-8b-instant",
-            messages: messages,
+            messages,
             stream: true
         });
 
-        // Streaming response
         res.setHeader(
             "Content-Type",
             "text/plain; charset=utf-8"
         );
 
+        // Stream response
         for await (const chunk of stream) {
 
             const text =
@@ -128,11 +137,11 @@ module.exports = async (req, res) => {
 
         if (!res.headersSent) {
             return res.status(500).json({
-                error: "ARIS could not connect to the AI.",
-                details: error.message
+                error: "ARIS could not connect to the AI."
             });
         }
 
         res.end();
     }
 };
+
