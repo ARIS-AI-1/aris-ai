@@ -1,3 +1,4 @@
+```js
 const Groq = require("groq-sdk");
 
 const groq = new Groq({
@@ -6,7 +7,8 @@ const groq = new Groq({
 
 module.exports = async (req, res) => {
     try {
-        // Allow Netlify and Deploy.is
+
+        // CORS
         const allowedOrigins = [
             "https://arisai1.netlify.app",
             "https://deploy.is"
@@ -31,37 +33,33 @@ module.exports = async (req, res) => {
             "Content-Type"
         );
 
-        // Handle browser CORS preflight
+        // CORS preflight
         if (req.method === "OPTIONS") {
             return res.status(204).end();
         }
 
-        // Test endpoint
+        // GET test
         if (req.method === "GET") {
             return res.status(200).json({
                 message: "ARIS AI chat API is online. Use POST to chat."
             });
         }
 
-        // Get request body
-        let rawBody = req.body;
+        // Read body
+        let body = req.body || {};
 
-        if (!rawBody) {
-            rawBody = {};
-        }
-
-        if (typeof rawBody === "string") {
+        if (typeof body === "string") {
             try {
-                rawBody = JSON.parse(rawBody);
+                body = JSON.parse(body);
             } catch {
-                rawBody = {};
+                body = {};
             }
         }
 
         const userMessage =
-            rawBody.message ||
-            rawBody.prompt ||
-            rawBody.text;
+            body.message ||
+            body.prompt ||
+            body.text;
 
         if (!userMessage) {
             return res.status(400).json({
@@ -69,7 +67,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // Ask Groq
+        // Ask Groq with streaming
         const stream = await groq.chat.completions.create({
             model: "llama-3.1-8b-instant",
 
@@ -93,8 +91,9 @@ module.exports = async (req, res) => {
             "text/plain; charset=utf-8"
         );
 
-        // Stream the AI response
+        // Stream response to website
         for await (const chunk of stream) {
+
             const text =
                 chunk.choices[0]?.delta?.content || "";
 
@@ -106,6 +105,7 @@ module.exports = async (req, res) => {
         res.end();
 
     } catch (error) {
+
         console.error("ARIS ERROR:", error);
 
         if (!res.headersSent) {
@@ -117,3 +117,4 @@ module.exports = async (req, res) => {
         }
     }
 };
+```
