@@ -9,12 +9,12 @@ module.exports = async (req, res) => {
     try {
 
         // CORS
+        const origin = req.headers.origin;
+
         const allowedOrigins = [
             "https://arisai1.netlify.app",
             "https://deploy.is"
         ];
-
-        const origin = req.headers.origin;
 
         if (allowedOrigins.includes(origin)) {
             res.setHeader(
@@ -25,7 +25,7 @@ module.exports = async (req, res) => {
 
         res.setHeader(
             "Access-Control-Allow-Methods",
-            "POST, GET, OPTIONS"
+            "GET, POST, OPTIONS"
         );
 
         res.setHeader(
@@ -33,20 +33,30 @@ module.exports = async (req, res) => {
             "Content-Type"
         );
 
-        // CORS preflight
+        // Browser preflight
         if (req.method === "OPTIONS") {
             return res.status(204).end();
         }
 
-        // GET test
+        // Test API
         if (req.method === "GET") {
             return res.status(200).json({
                 message: "ARIS AI chat API is online. Use POST to chat."
             });
         }
 
-        // Read body
-        let body = req.body || {};
+        if (req.method !== "POST") {
+            return res.status(405).json({
+                error: "Method not allowed"
+            });
+        }
+
+        // Get body
+        let body = req.body;
+
+        if (!body) {
+            body = {};
+        }
 
         if (typeof body === "string") {
             try {
@@ -67,7 +77,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // Ask Groq with streaming
+        // Call Groq
         const stream = await groq.chat.completions.create({
             model: "llama-3.1-8b-instant",
 
@@ -91,7 +101,7 @@ module.exports = async (req, res) => {
             "text/plain; charset=utf-8"
         );
 
-        // Stream response to website
+        // Send response
         for await (const chunk of stream) {
 
             const text =
@@ -109,12 +119,13 @@ module.exports = async (req, res) => {
         console.error("ARIS ERROR:", error);
 
         if (!res.headersSent) {
-            res.status(500).json({
-                error: "ARIS could not connect to the AI."
+            return res.status(500).json({
+                error: "ARIS could not connect to the AI.",
+                details: error.message
             });
-        } else {
-            res.end();
         }
+
+        res.end();
     }
 };
 ```
