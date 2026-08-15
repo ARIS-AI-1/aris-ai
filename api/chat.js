@@ -6,11 +6,20 @@ const groq = new Groq({
 
 module.exports = async (req, res) => {
     try {
-        // CORS settings for Netlify
-        res.setHeader(
-            "Access-Control-Allow-Origin",
-            "https://arisai1.netlify.app"
-        );
+        // Allow Netlify and Deploy.is
+        const allowedOrigins = [
+            "https://arisai1.netlify.app",
+            "https://deploy.is"
+        ];
+
+        const origin = req.headers.origin;
+
+        if (allowedOrigins.includes(origin)) {
+            res.setHeader(
+                "Access-Control-Allow-Origin",
+                origin
+            );
+        }
 
         res.setHeader(
             "Access-Control-Allow-Methods",
@@ -22,7 +31,7 @@ module.exports = async (req, res) => {
             "Content-Type"
         );
 
-        // Handle browser CORS preflight request
+        // Handle browser CORS preflight
         if (req.method === "OPTIONS") {
             return res.status(204).end();
         }
