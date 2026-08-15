@@ -107,10 +107,12 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(
+            `ARIS server running on port ${PORT}`
+        );
+    });
+}
 
-    console.log(
-        `ARIS server running on port ${PORT}`
-    );
-
-});
+module.exports = app;
