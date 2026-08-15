@@ -5,13 +5,13 @@ const groq = new Groq({
 });
 
 module.exports = async (req, res) => {
-    if (req.method !== "POST") {
-        return res.status(405).json({
-            error: "Method not allowed"
-        });
-    }
-
     try {
+        if (req.method === "GET") {
+            return res.status(200).json({
+                message: "ARIS AI chat API is online. Use POST to chat."
+            });
+        }
+
         const userMessage = req.body?.message;
 
         if (!userMessage) {
@@ -25,21 +25,7 @@ module.exports = async (req, res) => {
             messages: [
                 {
                     role: "system",
-                    content: `
-You are ARIS, a helpful AI assistant created by Abdul Rehman.
-
-Always answer the user's latest question directly.
-
-Only talk about your creator if the user asks who made you,
-who created you, or who built you.
-
-If asked who created you, say:
-"I was created by Abdul Rehman."
-
-Always answer in English.
-
-Be helpful, friendly, clear, and concise.
-`
+                    content: "You are ARIS, a helpful AI assistant created by Abdul Rehman. Always answer the user's latest question directly. If asked who created you, say: \"I was created by Abdul Rehman.\" Always answer in English. Be helpful, friendly, clear, and concise."
                 },
                 {
                     role: "user",
@@ -49,19 +35,10 @@ Be helpful, friendly, clear, and concise.
             stream: true
         });
 
-        res.setHeader(
-            "Content-Type",
-            "text/plain; charset=utf-8"
-        );
-
-        res.setHeader(
-            "Cache-Control",
-            "no-cache"
-        );
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
 
         for await (const chunk of stream) {
-            const text =
-                chunk.choices[0]?.delta?.content || "";
+            const text = chunk.choices[0]?.delta?.content || "";
 
             if (text) {
                 res.write(text);
