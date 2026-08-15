@@ -50,12 +50,8 @@ module.exports = async (req, res) => {
             });
         }
 
-        // Get body
-        let body = req.body;
-
-        if (!body) {
-            body = {};
-        }
+        // Get request body
+        let body = req.body || {};
 
         if (typeof body === "string") {
             try {
@@ -65,6 +61,7 @@ module.exports = async (req, res) => {
             }
         }
 
+        // Get user's current message
         const userMessage =
             body.message ||
             body.prompt ||
@@ -76,20 +73,20 @@ module.exports = async (req, res) => {
             });
         }
 
-        // Get conversation history from website
+        // Get conversation history
         let history = Array.isArray(body.history)
             ? body.history
             : [];
 
-        // Keep only the most recent messages
+        // Keep the latest 20 messages
         history = history.slice(-20);
 
-        // Build messages for Groq
+        // Build conversation for Groq
         const messages = [
             {
                 role: "system",
                 content:
-                    "You are ARIS, a helpful AI assistant created by Abdul Rehman. Use the conversation history to understand follow-up questions and context. Remember what the user was talking about earlier in the conversation. Always answer the user's latest question directly. If asked who created you, say: \"I was created by Abdul Rehman.\" Always answer in English. Be helpful, friendly, clear, and concise."
+                    "You are ARIS, a helpful AI assistant created by Abdul Rehman. Use the conversation history to understand follow-up questions and context. Remember what the user was talking about earlier. Understand references such as 'it', 'they', 'that', 'this', 'he', and 'she'. Always answer the user's latest question directly. Do not ask what topic the user means when the answer can be determined from the conversation history. If asked who created you, say: \"I was created by Abdul Rehman.\" Always answer in English. Be helpful, friendly, clear, and concise."
             },
 
             ...history,
@@ -100,22 +97,19 @@ module.exports = async (req, res) => {
             }
         ];
 
-        // Call Groq
+        // Ask Groq
         const stream = await groq.chat.completions.create({
-
             model: "llama-3.1-8b-instant",
-
             messages: messages,
-
             stream: true
         });
 
+        // Streaming response
         res.setHeader(
             "Content-Type",
             "text/plain; charset=utf-8"
         );
 
-        // Send response
         for await (const chunk of stream) {
 
             const text =
