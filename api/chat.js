@@ -15,10 +15,7 @@ module.exports = async (req, res) => {
         const origin = req.headers.origin;
 
         if (allowedOrigins.includes(origin)) {
-            res.setHeader(
-                "Access-Control-Allow-Origin",
-                origin
-            );
+            res.setHeader("Access-Control-Allow-Origin", origin);
         }
 
         res.setHeader(
@@ -31,7 +28,7 @@ module.exports = async (req, res) => {
             "Content-Type"
         );
 
-        // Handle browser CORS preflight
+        // Handle CORS preflight
         if (req.method === "OPTIONS") {
             return res.status(204).end();
         }
@@ -43,25 +40,21 @@ module.exports = async (req, res) => {
             });
         }
 
-        // Get request body
-        let rawBody = req.body;
+        // Read request body
+        let body = req.body || {};
 
-        if (!rawBody) {
-            rawBody = {};
-        }
-
-        if (typeof rawBody === "string") {
+        if (typeof body === "string") {
             try {
-                rawBody = JSON.parse(rawBody);
+                body = JSON.parse(body);
             } catch {
-                rawBody = {};
+                body = {};
             }
         }
 
-        const userMessage =
-            rawBody.message ||
-            rawBody.prompt ||
-            rawBody.text;
+        const userMessage = body.message;
+        const history = Array.isArray(body.history)
+            ? body.history
+            : [];
 
         if (!userMessage) {
             return res.status(400).json({
@@ -69,51 +62,47 @@ module.exports = async (req, res) => {
             });
         }
 
+        // Keep the conversation history at a reasonable size
+        const recentHistory = history
+            .slice(-20)
+            .map(item => ({
+                role: item.role === "assistant"
+                    ? "assistant"
+                    : "user",
+                content: String(item.content || "")
+            }))
+            .filter(item => item.content.trim());
+
+        const messages = [
+            {
+                role: "system",
+                content:
+                    "You are ARIS, a helpful AI assistant created by Abdul Rehman. Always answer the user's latest question directly. Use the previous conversation to understand follow-up questions and context. If the user says things like 'it', 'that', 'he', 'she', 'they', or asks a follow-up question, use the conversation history to understand what they mean. If asked who created you, say: \"I was created by Abdul Rehman.\" Always answer in English. Be helpful, friendly, clear, and concise."
+            },
+            ...recentHistory,
+            {
+                role: "user",
+                content: String(userMessage)
+            }
+        ];
+
         // Ask Groq
-        const stream = await groq.chat.completions.create({
+        const completion = await groq.chat.completions.create({
             model: "llama-3.1-8b-instant",
-
-            messages: [
-                {
-                    role: "system",
-                    content:
-                        "You are ARIS, a helpful AI assistant created by Abdul Rehman. Always answer the user's latest question directly. If asked who created you, say: \"I was created by Abdul Rehman.\" Always answer in English. Be helpful, friendly, clear, and concise."
-                },
-                {
-                    role: "user",
-                    content: String(userMessage)
-                }
-            ],
-
-            stream: true
+            messages: messages
         });
 
-        res.setHeader(
-            "Content-Type",
-            "text/plain; charset=utf-8"
-        );
+        const answer =
+            completion.choices[0]?.message?.content ||
+            "Sorry, I couldn't generate a response.";
 
-        // Stream the AI response
-        for await (const chunk of stream) {
-            const text =
-                chunk.choices[0]?.delta?.content || "";
-
-            if (text) {
-                res.write(text);
-            }
-        }
-
-        res.end();
+        res.status(200).send(answer);
 
     } catch (error) {
         console.error("ARIS ERROR:", error);
 
-        if (!res.headersSent) {
-            res.status(500).json({
-                error: "ARIS could not connect to the AI."
-            });
-        } else {
-            res.end();
-        }
+        res.status(500).json({
+            error: "ARIS could not connect to the AI."
+        });
     }
 };
