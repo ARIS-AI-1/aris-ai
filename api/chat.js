@@ -1,4 +1,3 @@
-```js
 const Groq = require("groq-sdk");
 
 const groq = new Groq({
@@ -77,21 +76,36 @@ module.exports = async (req, res) => {
             });
         }
 
+        // Get conversation history from website
+        let history = Array.isArray(body.history)
+            ? body.history
+            : [];
+
+        // Keep only the most recent messages
+        history = history.slice(-20);
+
+        // Build messages for Groq
+        const messages = [
+            {
+                role: "system",
+                content:
+                    "You are ARIS, a helpful AI assistant created by Abdul Rehman. Use the conversation history to understand follow-up questions and context. Remember what the user was talking about earlier in the conversation. Always answer the user's latest question directly. If asked who created you, say: \"I was created by Abdul Rehman.\" Always answer in English. Be helpful, friendly, clear, and concise."
+            },
+
+            ...history,
+
+            {
+                role: "user",
+                content: String(userMessage)
+            }
+        ];
+
         // Call Groq
         const stream = await groq.chat.completions.create({
+
             model: "llama-3.1-8b-instant",
 
-            messages: [
-                {
-                    role: "system",
-                    content:
-                        "You are ARIS, a helpful AI assistant created by Abdul Rehman. Always answer the user's latest question directly. If asked who created you, say: \"I was created by Abdul Rehman.\" Always answer in English. Be helpful, friendly, clear, and concise."
-                },
-                {
-                    role: "user",
-                    content: String(userMessage)
-                }
-            ],
+            messages: messages,
 
             stream: true
         });
@@ -128,4 +142,3 @@ module.exports = async (req, res) => {
         res.end();
     }
 };
-```
